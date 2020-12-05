@@ -8,9 +8,10 @@ on:
     paths:
       - "packages/container/**"
 
-defaults:
-  run:
-    working-directroy: packages/container
+# defaults:
+# run:
+# shell: bash
+# working-directroy: ./packages/container
 
 jobs:
   build:
@@ -19,8 +20,8 @@ jobs:
     steps:
       # to load up our code into ubuntu(vm)
       - uses: actions/checkout@v2
-      - run: npm install
-      - run: npm run build
+      - run: cd packages/container && npm install
+      - run: cd packages/container && npm run build
 
       # allow us access to aws cli
       - uses: chrislennon/action-aws-cli@v1.1
