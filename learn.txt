@@ -1,0 +1,479 @@
+what is micro front end ??
+monolithic spa vs micro
+
+base on feature 
+product list
+shopping cart
+
+each become spa
+
+we prevent direct communication
+
+simpler development 
+
+let us work in isolation 
+
+--------------------------------------
+
+e-commerce starter :
+
+product list 
+cart show 
+
+how manage data flow between in this two , coordinate  
+
+we use container micro front end app to let us coordinate info .
+
+intergration : container must have access to child micros , access to src code   
+
+there is no prefection solution for intergration ,
+
+build time intergration : compile time , use npm as source of our components,
+run time intergration : client , deploy to static files in route container request to address ,
+  we do this way with usage of webpack module federation (hardest) with webpack, most flexible and performant 
+server intergration : need huge amount of backend .
+
+----
+
+start :
+
+no js framework , every thing in isolation
+
+
+add webpack html plugin, webpack dev and webpack cli 
+
+
+we use webpack to make our code understandable for browsers .
+webpack.config.js
+add mode development 
+make script , "start" : 'webpack"
+
+
+index.js ---> webpack(bring dependencies) ---> bundle.js or main.js
+
+now add this bundle to browsers?? 
+how ?
+we use webpack dev server ,
+it make output available to browerses.
+add devServer with sepcific port to config file 
+update script to "start": "webpack serve"
+
+webpack find out how to load up main.js to index.html 
+
+
+webpack html plugin : it look at output file of webpack and automatically 
+ update references in index.html file , trace changes of webpack
+
+we add that to plugins 
+add setting to plugin 
+of where is index.html and it autom do rest of stuff .
+
+
+--- 
+
+NOw container part : 
+make it similar like before .
+dont add div with id .
+
+
+
+NOW intergration of products into container : 
+
+steps : 
+designate one app as host the other as remote .
+in remote make decision what you want make available for others .
+setup module federation to expose those files on remote source.(add to webpack config)
+
+in host , decide which files you want get from remote .
+
+setup module federation plugin to fetch those files .
+
+in the host , refactor the entry to load async files .
+make bootstrap and index and index import bootstrap file 
+
+and in bootstrap get files you need 
+
+make 3 work fine together with settings 
+
+-------
+
+now we must implement a way to use common features on one location rather than
+install each dependencies for single micro
+
+add new field to federation module 
+shared: ['name of package'] // they run async 
+// but local need it sync 
+shared package not available for inside .
+
+we use bootstrap pattern to load up info .
+
+
+but what if version of package are different?? faker 3 vs faker 4
+if version changes webpack get both version
+if only major version change webpack will get both .
+
+
+also sometimes we want to load up one copy of package like react 
+we add singleton true to shared props
+
+
+refactor code to work with different type of html selector .
+if development use local html 
+other wise use outsource .
+
+
+-----------------------------------------------------------------
+
+main app : 
+
+no sharing code , no communication in react way .
+we use event structure and we dont communicate between sibling micros
+css only must works on their scopes .
+
+
+why not cra or vue cli ???
+they write now does not support module federation
+
+start from marketing ,
+make 3 webpack files for common , dev and prod 
+
+define module 
+rules : in rules we define loader
+goal of loader is to tell to webpack start process files as we import or create them .
+
+like babel
+
+each loader has test section define criteria and execlude and use (we say to webpack
+what kind of loader use for this test case )
+
+
+in marketing start to add router and other normal react things .
+
+
+
+now need fix router problems and container compatibility .
+
+do module federation plugin stuff on marketing and container
+
+now how use mount function from micro inside our container .
+we use UseRef 
+with useRef we create a reference to a html element 
+use shared to reduce node_modules
+there are workaround for it by webpack .
+we use package.json in webpack to infrom it from all of dependencies .
+
+
+now go for development process 
+
+consider 
+we want deploy each independently.
+location fo each child app remoteEntry.js must be known at build time .
+we must know at build time in webpack build prod what are routes .
+must define remotes on prod 
+also we need a service provider that understand our structure and micros 
+and deploy each seperatly .
+also need ci/cd steps .
+remoteEntry must be reactive to not cache .
+
+
+
+git mono repo for prod :
+if any changes to folder -> build a prod version (on github) -> upload to azazon s3.
+
+
+amazon s3 is(CDN cloud front)  hold build version
+
+push code to github
+
+now setup prod config.
+add html webpack plugin to common 
+make script for build
+
+do this for container 
+
+now setup ci/cd for github.
+
+ci/cd : steps do in
+also we need another code somewhere to build for us and deploy it to 
+aws 
+
+
+github actions 
+some functionality happen base on events ,
+push code ,
+pull req ,
+every 15 min ,
+
+
+workflow for deploy one container :
+whenever code pushed to main/container changes 
+change into the folder 
+npm i
+create prod webpack
+upload to aws s3 .
+
+
+we use our local workflow :
+.github directory ,
+workflows 
+container.yaml
+
+
+-------------------------
+amazon 
+
+s3(hard drive) <- amazon cloud front (cdn) <- browser
+
+go to s3 
+
+~~~~create new bucket~~~ 
+bucket name 
+select region (memory location like us-east-1)
+now create bucket .
+now search bucket 
+click 
+update config
+files in s3 not publicly online => but we must accessible 
+  to allow => 
+  inside properties
+  static website hostic 
+  edit 
+  enable 
+  host static a website
+  add index document => index.html 
+  erro document => index.html
+  save changes
+now it is public 
+on persmiions tab 
+  block public access
+  edit 
+  see no checkmark 
+  done 
+  now on bucket policy
+  edit 
+  policy generator 
+  on new tab
+  (policy is sth that allows service inside aws to talk to eachother)
+  select type of policy (s3)
+  effect allow
+  pricipal *
+  actions => get object 
+  enter amazon resource name (name of bucket) ARN 
+  copy/paste bucket arn and  do at end /*
+  add statement 
+  generate policey
+  copy text 
+  now in edit bucket policy   
+  paste on policy text editor 
+  now save changes .
+~~~bucket createion end~~~
+
+// set of files we want to available to outside world 
+~~~amazon cloud front distribution~~~
+in aws management console 
+search 
+cloudfront 
+create distribution
+web 
+origin setting
+  origin name (select your bucket)
+default cache behavior setting
+  viewer protocol policy -> redirect http to https
+distribution settings 
+  default certificat
+create distribution
+after creation again need re config 
+click on id 
+general tab
+edit 
+default root object 
+/container/latest/index.html
+yes,edit 
+error pages tab 
+custom error response 
+http error code 403:forbidden 
+customize erro to yes
+response page path => /contaienr/latest/index.html
+http response code 200:ok
+create
+general tab
+domain name 
+~~~~~~
+
+now must sync app from github to aws .
+
+in yaml file 
+must define secrets on aws 
+inform github from those 
+and rest 
+
+
+now 
+~~~~~~~
+aws management console 
+iam to generate access key
+user section 
+add user 
+username 
+access type => programtic access key
+click permissions 
+attach existing policy directory
+amazons3fullaccess
+search cloud front 
+select cloud front access 
+next tags
+next review 
+create user 
+copy access key 
+````
+git hub repo
+on repo 
+right ...
+settings
+secrets 
+new secret 
+set secrets 
+
+re run action github 
+
+
+-----------------
+
+now must prepend location of real public info in s3 to script on html 
+
+
+must fix webpack 
+publicPath
+
+
+--- 
+caching 
+go to bucket 
+object url updated but others not .
+
+cloud front not look out changes 
+what we do ??
+in cloudfront section 
+invalidation tab
+create invalidation
+whole problem is from indx.html rest change with webpack hashContent 
+/container/latest/index.html
+but manually is foaul.
+on yaml 
+and new run 
+
+add marketing yaml
+now in prod webpack 
+fix remotes domain and path 
+
+add url of cloudfront to repo env .
+with https://
+now must make that secret as env var by update yaml container
+
+-----
+
+but in reality you want first review code then manager publish it 
+
+
+dev in dev-contaienr 
+ready?
+create pull request 
+others review 
+when ready to deploy merge pr 
+
+git checkout -b dev-contaienr
+git push origin dev-contaienr
+now go to github 
+pull request tab
+new pull request 
+select branches 
+create pull request
+
+
+
+----
+
+add header with browserRouter
+but there will be blood 
+
+handling css in micro front end app 
+on user navigate css from one project can 
+override desired page 
+
+must scope css
+css in js , 
+another way???
+but with css in js can cause class name coalision 
+
+
+----
+
+how navigation works???
+
+sub apps and contaienr must have both control over routing 
+micro front ends maybe on one page .
+
+
+routers  : history object + router
+
+one way use browser history in contaienr 
+and memory history on micros (memory history does not show url in path)
+because we maybe use different type of vue and angular 
+
+
+we use Router with memory router history object
+
+
+whole flow is when user click on link that governed by a specific micro 
+it must 
+communicate changes down or up 
+and reciever update his history
+
+
+how communicate info down to micro???
+mount function must return object
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
